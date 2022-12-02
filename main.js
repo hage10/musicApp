@@ -1,5 +1,6 @@
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
+const PLAYER_STORAGE_KEY = 'Trung'
 const heading = $('header h2')
 const cdThumb = $('.cd-thumb')
 const audio = $('#audio')
@@ -10,13 +11,18 @@ const progress = $('#progress')
 const nextBtn = $('.btn-next')
 const prevBtn = $('.btn-prev')
 const randomBtn = $('.btn-random')
-const repeatBtn =  $('.btn-repeat')
-console.log(playBtn);
+const repeatBtn = $('.btn-repeat')
+const playlist =$('.playlist')
 const app = {
     currentIndex: 0,
     isPlaying: false,
     isRandom: false,
     isRepeat: false,
+    config: JSON.parse(localStorage.getItem(PLAYER_STORAGE_KEY)) || {},
+    setConfig(key,value){
+        this.config[key] = value;
+        localStorage.setItem(PLAYER_STORAGE_KEY,JSON.stringify(this.config))
+    },
     songs: [
         {
             name: 'Waiting For You',
@@ -62,21 +68,25 @@ const app = {
         },
     ],
     render() {
-        const htmls = this.songs.map(song => {
-            return `<div class="song">
-            <div class="thumb"
-                style="background-image: url('${song.image}')">
-            </div>
-            <div class="body">
-                <h3 class="title">${song.name}</h3>
-                <p class="author">${song.singer}</p>
-            </div>
-            <div class="option">
-                <i class="fas fa-ellipsis-h"></i>
-            </div>
-        </div>`
-        })
+        const htmls = this.songs.map((song, index) => {
+            return `
+                              <div class="song ${index === this.currentIndex ? "active" : ""
+                }" data-index="${index}">
+                                  <div class="thumb"
+                                      style="background-image: url('${song.image}')">
+                                  </div>
+                                  <div class="body">
+                                      <h3 class="title">${song.name}</h3>
+                                      <p class="author">${song.singer}</p>
+                                  </div>
+                                  <div class="option">
+                                      <i class="fas fa-ellipsis-h"></i>
+                                  </div>
+                              </div>
+                          `;
+        });
         $('.playlist').innerHTML = htmls.join('');
+
     },
     defineProperties: function () {
         Object.defineProperty(this, "currentSong", {
@@ -140,42 +150,72 @@ const app = {
         }
         //next bài hát
         nextBtn.onclick = function () {
-            if(_this.isRandom){
+            if (_this.isRandom) {
                 _this.playRandom()
-            }else{
+            } else {
                 _this.nextSong();
             }
             audio.play();
+            _this.render();
+            _this.scrollToActiveSong();
+
         }
         //prev bài hát
         prevBtn.onclick = function () {
-            if(_this.isRandom){
+            if (_this.isRandom) {
                 _this.playRandom()
-            }else{
+            } else {
                 _this.prevSong();
             }
             audio.play();
+            _this.render();
+            _this.scrollToActiveSong();
+
         }
         //random bài hát
         randomBtn.onclick = function () {
             _this.isRandom = !_this.isRandom
+            _this.setConfig('isRandom',_this.isRandom)
+
             randomBtn.classList.toggle('active', _this.isRandom)
         },
-        
-        //xử lý phát lại nhạc
-        repeatBtn.onclick = function(e){
-            _this.isRepeat = !_this.isRepeat
-            repeatBtn.classList.toggle('active', _this.isRepeat)
-        },
-        //xử lý next song sau khi bài hát kết thúc
-        audio.onended = function(){
-            if(_this.isRepeat){
-                audio.play();
-            }else{
-                nextBtn.click();
+
+            //xử lý phát lại nhạc
+            repeatBtn.onclick = function (e) {
+                _this.isRepeat = !_this.isRepeat
+                _this.setConfig('isRepeat',_this.isRepeat)
+                repeatBtn.classList.toggle('active', _this.isRepeat)
+            },
+            //xử lý next song sau khi bài hát kết thúc
+            audio.onended = function () {
+                if (_this.isRepeat) {
+                    audio.play();
+                } else {
+                    nextBtn.click();
+                }
+            },
+            playlist.onclick = function(e){
+                const songNode = e.target.closest('.song:not(.active)')
+                if( songNode|| e.target.closest('.option')){
+                    if(songNode){
+                        const indexSong = Number(songNode.dataset.index)
+                        _this.currentIndex = indexSong
+                        _this.loadCurrentSong()
+                        _this.render()
+                        audio.play();
+                    }
+                }
+
             }
-        }
     },
+    scrollToActiveSong() {
+        setTimeout(() => {
+          $(".song.active").scrollIntoView({
+            behavior: "smooth",
+            block: "nearest"
+          });
+        }, 300);
+      },
     loadCurrentSong() {
 
         heading.textContent = this.currentSong.name
